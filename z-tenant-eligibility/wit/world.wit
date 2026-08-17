@@ -1,0 +1,71 @@
+/// z-tenant-eligibility — reusable confidential eligibility attestations.
+///
+/// The problem this solves: every tenant that needs to know "is this user old
+/// enough / in a permitted jurisdiction?" normally collects the user's date of
+/// birth and address to find out. That spreads plaintext PII across every
+/// tenant who ever needs the answer, and re-collects it on every check.
+///
+/// This contract answers the question without ever holding the PII, and caches
+/// the *answer* so the question is only asked once per policy per validity
+/// window:
+///
+///   - The eligibility predicate is evaluated by an external verifier reached
+///     through `http-with-placeholders`. The request body carries
+///     `{{profile.date_of_birth}}` / `{{profile.country}}` markers that the
+///     host resolves from the calling user's profile at dispatch time, on the
+///     host stack, after the contract has finished composing the request. The
+///     contract's WASM memory never contains the plaintext.
+///   - The result is stored as an attestation keyed by the *calling* user's
+///     DID, taken from `tenant-context.calling-user-did()` rather than from
+///     contract input, so a caller cannot mint an attestation for someone else.
+///   - `kv-store.set-claims-digest` binds a SHA-256 of the attestation into the
+///     transaction's Merkle leaf, so a holder can prove offline, from the
+///     ledger receipt alone, that this cluster issued exactly this attestation.
+///   - Only `{ eligible, policy_id, issued_at, expires_at }` crosses the WIT
+///     boundary. No date of birth, no country, no address — not even to the
+///     tenant that owns the contract.
+///
+/// Imports are deliberately the same capability set the reference contract
+/// (`z-tenant-flight`) is known to run with, since the tenant world's full
+/// interface list is not documented — see BUG-06 in this repo's BUGS.md.
+package z:tenant-eligibility@0.1.0;
+
+world tenant-eligibility {
+    import host:tenant/tenant-context@1.0.0;
+    import host:interfaces/logging@2.1.0;
+    import host:interfaces/kv-store@2.1.0;
+    import host:interfaces/http-with-placeholders@2.1.0;  // PII stays host-side
+
+    export contracts;
+}
+
+interface contracts {
+    /// Standard 3-field envelope used by all contracts callable from the node.
+    /// `input`        — JSON-serialized request payload specific to the function.
+    /// `user-profile` — always None for tenant contracts (hardcoded at dispatch).
+    /// `context`      — JSON-serialized DynamicContext (node-minted, trusted).
+    record generic-input {
+        input:        option<list<u8>>,
+        user-profile: option<list<u8>>,
+        context:      option<list<u8>>,
+    }
+
+    /// Evaluate a named policy against the calling user and return an
+    /// attestation.
+    ///
+    /// Input  (JSON): { policy_id }
+    /// Output (JSON): { policy_id, subject, eligible, reason_code, issued_at,
+    ///                  expires_at, reused }
+    ///
+    /// `reused: true` means a still-valid attestation already existed and no
+    /// outbound call was made — the user's profile was not touched at all.
+    /// The subject is resolved from `calling-user-did()`, never from input.
+    check-eligibility: func(req: generic-input) -> result<list<u8>, string>;
+
+    /// Verify a previously issued attestation is present, unexpired and
+    /// unmodified, by comparing its SHA-256 against the stored record.
+    ///
+    /// Input  (JSON): { policy_id, subject, digest }
+    /// Output (JSON): { valid, reason_code, expires_at }
+    verify-attestation: func(req: generic-input) -> result<list<u8>, string>;
+}

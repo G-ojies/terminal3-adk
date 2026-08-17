@@ -1,0 +1,4 @@
+REJECTED (not in schema):
+  citizenship, country, country_code, email, family_name, full_name, given_name, location, nationality, phone, region, residence
+ACCEPTED (part of the profile schema):
+  date_of_birth, first_name, last_name, residence_country, address, verified_contacts, gender

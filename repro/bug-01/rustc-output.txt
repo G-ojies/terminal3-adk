@@ -1,0 +1,14 @@
+   Compiling z-tenant-flight v0.4.1 (/home/greyat_labs/Development/terminal3-adk/z-tenant-flight)
+error[E0277]: `Vec<u8>` doesn't implement `std::fmt::Display`
+   --> src/search.rs:182:51
+    |
+182 |     let map_name = alloc::format!("z:{}:secrets", tid);
+    |                                      --           ^^^ `Vec<u8>` cannot be formatted with the default formatter
+    |                                      |
+    |                                      required by this formatting parameter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Vec<u8>`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `z-tenant-flight` (lib) due to 1 previous error

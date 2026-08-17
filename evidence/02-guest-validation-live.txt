@@ -1,0 +1,11 @@
+invoking z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility @ 0.1.1
+verify-attestation (never issued)
+  -> {"valid":false,"reason_code":"not_found","expires_at":0}
+verify-attestation (non-hex subject)
+  -> [-32602] contract error: subject must be hex-encoded (req 9e0c3a9c-799b-43c1-90e8-93993a5a26ee)
+check-eligibility (inline PII must be refused)
+  -> [-32602] contract error: bad input: 'date_of_birth' must not be passed inline — this contract reads profile fields through host-resolved {{profile.*}} placeholders only (req 08bff0e4-62a1-4864-b18f-a32d56b1fc50)
+check-eligibility (policy id with separator)
+  -> [-32602] contract error: policy_id may contain only ASCII alphanumerics, '-', '_' and '.' (req 84816281-2885-4cb9-95eb-edbcddd44f86)
+check-eligibility (real, needs verifier)
+  -> [-32602] contract error: 'verifier_api_key' not found in z:<tid>:secrets — populate it via the tenant SDK (req 54e68e17-02ec-4390-a419-b06b048b4cf0)

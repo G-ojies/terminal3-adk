@@ -1,0 +1,11 @@
+--- /tmp/claude-1000/-home-greyat-labs-Development/cb8ce1dd-528a-45d0-974d-cec219420182/scratchpad/search.rs.bak	2026-08-17 08:59:57.292766046 +0100
++++ src/search.rs	2026-08-17 08:59:57.357303188 +0100
+@@ -179,7 +179,7 @@
+ #[cfg(target_arch = "wasm32")]
+ fn get_api_key() -> Result<alloc::string::String, alloc::string::String> {
+     let tid = tenant_context::tenant_did();
+-    let map_name = alloc::format!("z:{}:secrets", hex::encode(&tid));
++    let map_name = alloc::format!("z:{}:secrets", tid);
+     let bytes = kv_store::get(&map_name, b"duffel_api_key")
+         .map_err(|e| alloc::format!("kv read: {e}"))?
+         .ok_or("duffel_api_key not found in z:<tid>:secrets — populate it via the tenant SDK before use")?;

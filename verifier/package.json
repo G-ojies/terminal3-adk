@@ -1,0 +1,13 @@
+{
+  "name": "t3n-eligibility-verifier",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Eligibility verifier for the z-tenant-eligibility TEE contract — the only component that sees plaintext PII, and only for the duration of one request",
+  "scripts": {
+    "test": "tsx test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}

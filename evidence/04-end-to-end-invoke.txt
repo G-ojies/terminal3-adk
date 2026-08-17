@@ -1,0 +1,14 @@
+did:      did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+contract: z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility @ 0.1.4
+verifier: verifier-jade.vercel.app
+granted did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+  -> z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility (hosts: verifier-jade.vercel.app)
+check-eligibility (first call)
+  -> {"policy_id":"adult-eu","subject":"f39cbc5ab038a4b3fa862e025f971485690864e4","eligible":true,"reason_code":"ok","issued_at":1786958459,"expires_at":1789550459,"digest":"51fc6b1b5d75923ec5bcb5c3b290a4eacf8a0c9592b8678e11265bca8721cee2","reused":false}
+check-eligibility (second call, expect reused=true)
+  -> {"policy_id":"adult-eu","subject":"f39cbc5ab038a4b3fa862e025f971485690864e4","eligible":true,"reason_code":"ok","issued_at":1786958459,"expires_at":1789550459,"digest":"51fc6b1b5d75923ec5bcb5c3b290a4eacf8a0c9592b8678e11265bca8721cee2","reused":true}
+verify-attestation (genuine)
+  -> {"valid":true,"reason_code":"ok","expires_at":1789550459}
+verify-attestation (tampered digest, expect valid=false)
+  -> {"valid":false,"reason_code":"digest_mismatch","expires_at":1789550459}
+reuse check: first.reused=false  second.reused=true  <- second call made no outbound request

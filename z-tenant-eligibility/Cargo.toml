@@ -1,0 +1,29 @@
+[package]
+name = "z-tenant-eligibility"
+version = "0.1.0"
+edition = "2021"
+description = "Reusable confidential eligibility attestations for T3N z-space tenants — the eligibility answer is computed and cached without the contract ever holding the user's PII"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+# wit-bindgen's macro generates the bindings from wit/ at compile time.
+wit-bindgen = { version = "0.49", default-features = false, features = ["macros", "realloc"] }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+# tenant_did() returns raw CompactDid bytes and has to be hex-encoded exactly
+# once to build the z:<tid>:<map> name. See BUGS.md BUG-01/BUG-02.
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+# SHA-256 for the attestation digest bound into the tx Merkle leaf via
+# kv-store.set-claims-digest, which requires exactly 32 bytes.
+sha2 = { version = "0.10", default-features = false }
+
+# Small, self-contained artifact — keeps registration under the size cap.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,8 @@
+/home/greyat_labs/Development/terminal3-adk/scripts/session.ts:97
+  await tenant.me();
+               ^
+TypeError: tenant.me is not a function
+    at connectTenant (/home/greyat_labs/Development/terminal3-adk/scripts/session.ts:97:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/greyat_labs/Development/terminal3-adk/scripts/quickstart.ts:10:31)
+Node.js v20.19.2

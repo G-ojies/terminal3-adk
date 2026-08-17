@@ -1,0 +1,11 @@
+tenant: did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+status: active  label: testnet-dev
+quotas: max_contracts=10 max_maps=50 max_wasm_bytes=1048576
+registering z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility (184 KiB)
+registered as contract id 713
+  map z:f39cbc5ab038a4b3fa862e025f971485690864e4:secrets
+  map z:f39cbc5ab038a4b3fa862e025f971485690864e4:policies
+  map z:f39cbc5ab038a4b3fa862e025f971485690864e4:attestations
+  skipping secret 'verifier_api_key' — VERIFIER_API_KEY not set
+  seeded policy 'adult-eu' (verifier: https://verifier.example.com/v1/eligibility)
+done. script_name = z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility @ 0.1.1, contract_id = 713

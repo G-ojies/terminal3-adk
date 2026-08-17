@@ -1,0 +1,6 @@
+seeded policy 'eu-only' allowing DE, FR (profile is NG)
+check-eligibility('eu-only')
+  -> {"policy_id":"eu-only","subject":"f39cbc5ab038a4b3fa862e025f971485690864e4","eligible":false,"reason_code":"country_not_permitted","issued_at":1786958737,"expires_at":1789550737,"digest":"43de2f9ae82f32a0b5b45cd6bc25b08d208ef4fb430ad195c059d1ab7ac84197","reused":false}
+PROVEN: the verdict flipped on the profile's real residence_country.
+        The host resolved {{profile.residence_country}} to an actual value,
+        which the contract itself never saw.
