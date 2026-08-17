@@ -15,6 +15,14 @@ type Target = {
   wasm: string;
   maps: string[];
   secrets: Array<[string, string]>;
+  /** Extra KV entries to seed, as [map tail, key, value factory]. */
+  entries?: Array<[string, string, () => string]>;
+  /**
+   * Maps other contracts of this tenant also use. Their ACL must NOT be
+   * narrowed to the contract being deployed, or the previous deploy's contract
+   * loses access — `secrets` is shared by every contract here.
+   */
+  sharedMaps?: string[];
 };
 
 const TARGETS: Record<string, Target> = {
@@ -23,13 +31,39 @@ const TARGETS: Record<string, Target> = {
     version: process.env.CONTRACT_VERSION ?? "0.1.0",
     wasm: "z-tenant-eligibility/target/wasm32-wasip2/release/z_tenant_eligibility.wasm",
     maps: ["secrets", "policies", "attestations"],
+    sharedMaps: ["secrets"],
     secrets: [["verifier_api_key", "VERIFIER_API_KEY"]],
+  },
+  inference: {
+    tail: "inference",
+    version: process.env.CONTRACT_VERSION ?? "0.1.0",
+    wasm: "z-tenant-inference/target/wasm32-wasip2/release/z_tenant_inference.wasm",
+    maps: ["secrets", "inference"],
+    sharedMaps: ["secrets"],
+    secrets: [["gateway_api_key", "AI_GATEWAY_API_KEY"]],
+    entries: [
+      [
+        "inference",
+        "config",
+        () =>
+          JSON.stringify({
+            // Endpoint lives here, never in request input — see the contract's
+            // security note. Its host must also be in the user's egress grant.
+            endpoint:
+              process.env.INFERENCE_ENDPOINT ??
+              "https://ai-gateway.vercel.sh/v1/chat/completions",
+            secret_key: "gateway_api_key",
+            default_model: process.env.INFERENCE_MODEL ?? "openai/gpt-5-mini",
+          }),
+      ],
+    ],
   },
   flight: {
     tail: "travel-contracts",
     version: process.env.CONTRACT_VERSION ?? "0.1.0",
     wasm: "z-tenant-flight/target/wasm32-wasip2/release/z_tenant_flight.wasm",
     maps: ["secrets"],
+    sharedMaps: ["secrets"],
     secrets: [["duffel_api_key", "DUFFEL_API_KEY"]],
   },
 };
@@ -82,19 +116,27 @@ console.log(`registered as contract id ${contractId}`);
 // So `map-update` has to run on every deploy, not just the first. See
 // BUGS.md BUG-15.
 console.log();
+const shared = new Set(target.sharedMaps ?? []);
 for (const tail of target.maps) {
   const map_name = c.canonical(tail);
-  const acl = {
-    writers: { only: [contractId] },
-    readers: { only: [contractId] },
-  };
+
+  // A map used by more than one of this tenant's contracts cannot be pinned to
+  // the id being deployed. `visibility: private` already limits access to this
+  // tenant's own contracts, so "all" here means "any of my contracts", not
+  // world-readable.
+  const acl = shared.has(tail)
+    ? { writers: "all" as const, readers: "all" as const }
+    : { writers: { only: [contractId] }, readers: { only: [contractId] } };
 
   await c.idempotent(map_name, () =>
     c.exec("map-create", { map_name, visibility: "private", ...acl }),
   );
-  // Idempotent create is a no-op on redeploy, so the ACL is stale by default.
+  // Idempotent create is a no-op on redeploy, so the ACL is stale by default
+  // and has to be re-applied every time (BUG-15).
   await c.exec("map-update", { map_name, ...acl });
-  console.log(`  map ${map_name} -> readers/writers = [${contractId}]`);
+  console.log(
+    `  map ${map_name} -> ${shared.has(tail) ? "shared (all this tenant's contracts)" : `readers/writers = [${contractId}]`}`,
+  );
 }
 
 // ---- 3. Seed secrets ------------------------------------------------------
@@ -106,8 +148,22 @@ for (const [key, envVar] of target.secrets) {
     console.log(`  skipping secret '${key}' — ${envVar} not set`);
     continue;
   }
-  await c.exec("map-entry-set", { map_name: c.canonical("secrets"), key, value });
+  await c.execRetryingDenied("map-entry-set", {
+    map_name: c.canonical("secrets"),
+    key,
+    value,
+  });
   console.log(`  sealed '${key}' into ${c.canonical("secrets")}`);
+}
+
+// ---- 3b. Seed any extra config entries -----------------------------------
+for (const [mapTail, key, value] of target.entries ?? []) {
+  await c.execRetryingDenied("map-entry-set", {
+    map_name: c.canonical(mapTail),
+    key,
+    value: value(),
+  });
+  console.log(`  seeded '${key}' into ${c.canonical(mapTail)}`);
 }
 
 // ---- 4. Seed the demo policy ---------------------------------------------
@@ -118,7 +174,7 @@ if (name === "eligibility") {
     ttl_secs: 2_592_000, // 30 days
     verifier_url: process.env.VERIFIER_URL ?? "https://verifier.example.com/v1/eligibility",
   };
-  await c.exec("map-entry-set", {
+  await c.execRetryingDenied("map-entry-set", {
     map_name: c.canonical("policies"),
     key: "adult-eu",
     value: JSON.stringify(policy),

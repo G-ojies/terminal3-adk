@@ -1,0 +1,37 @@
+=== tenant credit exhausted ===
+did: did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+version lookup       OK   tee:tenant/contracts @ 1.26.0
+tenant-me            [403] InsufficientCredit (account=f39cbc5ab038a4b3fa862e025f971485690864e4, required=10000000000, available=0)
+verify-attestation   [403] InsufficientCredit (account=f39cbc5ab038a4b3fa862e025f971485690864e4, required=10000000000, available=0)
+check-eligibility    [403] InsufficientCredit (account=f39cbc5ab038a4b3fa862e025f971485690864e4, required=10000000000, available=0)
+
+=== ACL denial is not the ACL shape (probe on a throwaway map) ===
+z:f39cbc5ab038a4b3fa862e025f971485690864e4:acl-probe already exists
+ACL = writers:all
+  attempt 1: allowed
+  attempt 2: allowed
+  attempt 3: allowed
+ACL = writers:only[999999]  (control plane excluded)
+  attempt 1: allowed
+  attempt 2: allowed
+  attempt 3: allowed
+  attempt 4: allowed
+ACL = readers:only[999999]  (control plane cannot READ)
+  attempt 1: allowed
+  attempt 2: allowed
+  attempt 3: allowed
+  attempt 4: allowed
+ACL = readers AND writers only[999999]  (exactly what the deploy set)
+  attempt 1: allowed
+  attempt 2: allowed
+  attempt 3: allowed
+restoring readers:all writers:all
+  final: allowed
+
+=== deploy order replayed on fresh maps: not reproducible ===
+round 1: allowed
+round 2: allowed
+round 3: allowed
+round 4: allowed
+round 5: allowed
+0/5 rounds denied

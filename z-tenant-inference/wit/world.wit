@@ -1,0 +1,66 @@
+/// z-tenant-inference — LLM inference proxied through the enclave.
+///
+/// The problem: every app that calls a model provider holds that provider's API
+/// key in its own process, and every prompt passes through the app's memory and
+/// logs before it reaches the model. If the prompt contains user data, the app
+/// is now a processor of that data whether it wanted to be or not.
+///
+/// This contract moves the call inside the confidential-compute boundary:
+///
+///   - The provider API key lives in `z:<tid>:secrets` and is read inside the
+///     enclave. It is never present in the calling application's environment,
+///     memory, or configuration.
+///   - The prompt is sent to the provider by the host, from inside the TEE. The
+///     calling app sees only the completion it gets back.
+///   - Prompts may carry `{{profile.<field>}}` markers. With `resolve-profile`
+///     set, the request goes out through `http-with-placeholders`, so the host
+///     substitutes the calling user's real values at dispatch time. The
+///     plaintext PII never enters this contract's WASM memory, and never
+///     touches the calling application at all.
+///   - Every call is a ledger transaction, so inference is auditable.
+///
+/// # Security design
+///
+/// The endpoint is read from tenant config in KV — **never** from the request.
+/// Taking a URL from caller input would turn this contract into an SSRF proxy
+/// with a sealed credential attached, which is precisely the thing worth not
+/// building. The host's per-contract egress allowlist is a second line of
+/// defence, not the only one.
+package z:tenant-inference@0.1.0;
+
+world tenant-inference {
+    import host:tenant/tenant-context@1.0.0;
+    import host:interfaces/logging@2.1.0;
+    import host:interfaces/kv-store@2.1.0;
+    import host:interfaces/http@2.1.0;                    // prompts without PII
+    import host:interfaces/http-with-placeholders@2.1.0;  // prompts with {{profile.*}}
+
+    export contracts;
+}
+
+interface contracts {
+    /// Standard 3-field envelope used by all contracts callable from the node.
+    record generic-input {
+        input:        option<list<u8>>,
+        user-profile: option<list<u8>>,
+        context:      option<list<u8>>,
+    }
+
+    /// Run one chat completion inside the enclave.
+    ///
+    /// Input  (JSON): { model, messages, tools?, temperature?, resolve_profile? }
+    /// Output (JSON): the provider's chat-completion response, passed through.
+    ///
+    /// `model`, `messages` and `tools` are forwarded verbatim, so the caller
+    /// keeps the provider's own request and response shape and this contract
+    /// stays a transport rather than a translation layer. Streaming is not
+    /// available: host HTTP is synchronous, so the full completion returns at
+    /// once.
+    complete: func(req: generic-input) -> result<list<u8>, string>;
+
+    /// Report the configured endpoint and whether the secret is present,
+    /// without revealing the secret. For diagnosing setup.
+    ///
+    /// Output (JSON): { endpoint, secret_present, model_default }
+    config-status: func(req: generic-input) -> result<list<u8>, string>;
+}

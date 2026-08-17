@@ -62,7 +62,51 @@ export async function controlClient() {
     }
   }
 
-  return { t3n, did, tid, baseUrl, version, canonical, exec, execWithBlob, idempotent };
+  /**
+   * Retry a control call that fails with `access denied`.
+   *
+   * A `map-entry-set` issued immediately after a `map-update` on the same map is
+   * sometimes refused with
+   *   access denied: StorageRouterOnBehalfOf(Contract(tee:tenant/contracts))
+   *   cannot write map "z:<tid>:secrets"
+   * yet the identical call succeeds moments later, with the ACL unchanged. It
+   * looks like the ACL change has not settled for the governor when the write
+   * arrives. Observed request ids: a4063032-0d48-47ab-8858-13b79586ec00,
+   * 6f7cf2e7-f890-4ecd-b5fa-119203f0bffc. See BUGS.md BUG-17.
+   */
+  async function execRetryingDenied<T = unknown>(
+    fn: string,
+    input: unknown,
+    attempts = 4,
+  ): Promise<T> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await exec<T>(fn, input);
+      } catch (err: any) {
+        lastErr = err;
+        const detail = String(err?.detail ?? err?.message ?? "");
+        if (!/access denied/i.test(detail)) throw err;
+        const waitMs = 750 * (i + 1);
+        console.log(`  (access denied on ${fn}, retrying in ${waitMs}ms)`);
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
+    throw lastErr;
+  }
+
+  return {
+    t3n,
+    did,
+    tid,
+    baseUrl,
+    version,
+    canonical,
+    exec,
+    execWithBlob,
+    idempotent,
+    execRetryingDenied,
+  };
 }
 
 /** Readable one-line form of an RpcError. */

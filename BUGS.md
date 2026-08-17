@@ -685,6 +685,89 @@ benign.
 
 ---
 
+## BUG-17 — A control-plane write right after a `map-update` is sometimes denied
+
+**Severity: Minor** (intermittent) · Node defect
+
+A `map-entry-set` issued immediately after a `map-update` on the same map is
+sometimes refused:
+
+```
+access denied: StorageRouterOnBehalfOf(Contract(tee:tenant/contracts))
+cannot write map "z:f39cbc…:secrets"
+  req a4063032-0d48-47ab-8858-13b79586ec00
+  req 6f7cf2e7-f890-4ecd-b5fa-119203f0bffc
+```
+
+The identical call succeeds moments later with the ACL unchanged, which is what
+makes it awkward: the error names an access-control cause, but access control
+is not what is failing.
+
+I tried fairly hard to pin down a rule and could not:
+
+| Tested | Result |
+|---|---|
+| `writers: only[999999]` (control plane definitively excluded) | allowed, 4/4 |
+| `readers: only[999999]` | allowed, 4/4 |
+| `readers` **and** `writers` `only[999999]` | allowed, 3/3 |
+| Replay of the deploy's exact order on fresh maps (update A, update B, write A) | allowed, 5/5 |
+| The real deploy against `z:<tid>:secrets` | **denied**, twice |
+
+So it is not the ACL shape, and the documented rule — that a control-plane
+write bypasses the writers ACL — does hold. It looks like an ACL change not yet
+being visible to the governor when a write arrives close behind it.
+
+**Impact.** Low but confusing, and it lands in the natural deploy shape:
+create maps, set their ACLs, seed their entries. The error points the reader at
+permissions, which is a dead end.
+
+**Workaround used here** (`scripts/control.ts`): retry on `access denied` with
+a short backoff. Seeding entries before narrowing ACLs would also avoid it.
+
+**Suggested fix.** Either make the ACL update read-your-writes consistent for
+the issuing session, or distinguish "not yet applied" from "refused" so the
+error does not send people to the wrong place.
+
+---
+
+## BUG-18 — The credit grant does not survive a day of the development the bounty asks for
+
+**Severity: Major** (onboarding)
+
+Every contract execution costs **10,000 tokens** (`required=10000000000` at
+`TOKEN_DECIMALS = 6`). That covers reads as well as writes — `tenant-me` is
+metered identically to a contract invocation.
+
+Building and testing two contracts over one day — roughly a dozen
+registrations and several dozen invocations, which is exactly the activity this
+bounty asks for — exhausted the balance:
+
+```
+version lookup       OK   (unmetered)
+tenant-me            [403] InsufficientCredit (available=0)
+verify-attestation   [403] InsufficientCredit (available=0)
+check-eligibility    [403] InsufficientCredit (available=0)
+```
+
+Once the balance is zero the tenant cannot inspect its own state either, since
+`tenant-me` is metered — so the natural "what's wrong with my account?" call is
+the one that stops working. There is no self-service top-up: probing
+`tee:tenant/contracts` for `token-balance`, `token-transfer`, `token-grant`,
+`tenant-usage` and five other plausible names returns absent for all nine, so
+refilling is out-of-band.
+
+**Impact.** A developer who completes the walkthrough and then iterates on
+their own contract — the outcome the bounty is trying to produce — will hit
+this, probably on day one, and their deployed work stops responding. Anything
+they have shown to someone else stops working too.
+
+**Suggested fix.** Surface the balance somewhere unmetered, so a developer can
+see it falling before it hits zero; exempt `tenant-me` from metering so
+diagnosis is always possible; and state the per-call cost and starting balance
+on the claim page so the budget is predictable.
+
+---
+
 ## Contribution — a working Next.js config for the documented WASM rough edge
 
 Not a bug: an answer to one you asked for. The Quickstart says:
