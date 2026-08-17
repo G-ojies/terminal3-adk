@@ -459,6 +459,37 @@ npx tsx verifier/test.ts
 
 ---
 
+## A fix for the Next.js WASM rough edge you asked about
+
+Not a bug — an answer to one you requested. The Quickstart says:
+
+> We're tracking this as a known rough edge — **if you find a config that fixes
+> it, tell us in the developer Telegram and we'll document it here properly.**
+
+I integrated the SDK into a Next.js 16.2.6 app (App Router, Turbopack) and it
+works. Two things are needed, and nothing else:
+
+```ts
+// next.config.ts — the SDK is not on Next's auto-externalised list
+serverExternalPackages: ["@terminal3/t3n-sdk"]
+
+// any route importing it — loadWasmComponent needs Node
+export const runtime = "nodejs"   // NOT "edge"
+```
+
+Verified in both `next dev` (Turbopack) and `next build`:
+`loadWasmComponent`, `fetchTrustedManifest`, handshake, authenticate,
+`getContractVersion` and `executeAndDecode` against the live contract.
+
+Worth documenting alongside it: the first call costs ~10s (WASM load +
+handshake + auth + version lookup) and later calls ~0.04s once memoised. On
+serverless that 10s hits every cold start, so the session wants caching at
+module scope with the in-flight promise shared.
+
+The working integration is an AI chat agent that calls the eligibility contract
+as a tool and explains the result:
+<https://github.com/G-ojies/greyat-labs-chat>
+
 ## One open question I could not answer
 
 Recorded rather than glossed over, because it affects my own contract.

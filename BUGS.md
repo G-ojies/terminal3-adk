@@ -685,6 +685,54 @@ benign.
 
 ---
 
+## Contribution — a working Next.js config for the documented WASM rough edge
+
+Not a bug: an answer to one you asked for. The Quickstart says:
+
+> A handful of teams have hit WASM-loading errors under Next.js/Turbopack, Vite,
+> and older Webpack setups… If you're on Next.js specifically, adding your
+> bundler's equivalent of an external-packages/no-bundle exception for
+> `@terminal3/t3n-sdk` is worth trying. We're tracking this as a known rough
+> edge — **if you find a config that fixes it, tell us in the developer Telegram
+> and we'll document it here properly.**
+
+I integrated the SDK into a Next.js 16.2.6 app (App Router, Turbopack) and it
+works. Two things are required, and that is all:
+
+**1. `next.config.ts` — opt the SDK out of bundling:**
+
+```ts
+const nextConfig: NextConfig = {
+  serverExternalPackages: ["@terminal3/t3n-sdk"],
+};
+```
+
+`@terminal3/t3n-sdk` is not on Next's auto-externalised list, so without this
+the bundler processes the WASM component and breaks it.
+
+**2. Any route importing the SDK must run on the Node runtime:**
+
+```ts
+export const runtime = "nodejs";   // NOT "edge" — loadWasmComponent needs Node
+```
+
+`nodejs` is the default in Next 16, but it must be declared explicitly on any
+route previously set to `edge`.
+
+Verified working: `loadWasmComponent()`, `fetchTrustedManifest()`, handshake,
+authenticate, `getContractVersion` and `executeAndDecode` against a live tenant
+contract, in both `next dev` (Turbopack) and `next build`.
+
+One practical note worth documenting alongside it: the first call costs ~10s
+(WASM load + handshake + auth + version lookup), and subsequent calls ~0.04s
+once the session is memoised. In a serverless deployment that 10s lands on
+every cold start, so the session should be cached at module scope and the
+in-flight promise shared rather than re-handshaking per request.
+
+Working integration: <https://github.com/G-ojies/greyat-labs-chat>
+
+---
+
 ## Open question
 
 One thing I could not settle, recorded here rather than glossed over.

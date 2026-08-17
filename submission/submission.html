@@ -431,6 +431,30 @@ npx tsx verifier/test.ts
 </tr>
 </tbody></table>
 <hr>
+<h2>A fix for the Next.js WASM rough edge you asked about</h2>
+<p>Not a bug — an answer to one you requested. The Quickstart says:</p>
+<blockquote>
+<p>We&#39;re tracking this as a known rough edge — <strong>if you find a config that fixes
+it, tell us in the developer Telegram and we&#39;ll document it here properly.</strong></p>
+</blockquote>
+<p>I integrated the SDK into a Next.js 16.2.6 app (App Router, Turbopack) and it
+works. Two things are needed, and nothing else:</p>
+<pre><code class="language-ts">// next.config.ts — the SDK is not on Next&#39;s auto-externalised list
+serverExternalPackages: [&quot;@terminal3/t3n-sdk&quot;]
+
+// any route importing it — loadWasmComponent needs Node
+export const runtime = &quot;nodejs&quot;   // NOT &quot;edge&quot;
+</code></pre>
+<p>Verified in both <code>next dev</code> (Turbopack) and <code>next build</code>:
+<code>loadWasmComponent</code>, <code>fetchTrustedManifest</code>, handshake, authenticate,
+<code>getContractVersion</code> and <code>executeAndDecode</code> against the live contract.</p>
+<p>Worth documenting alongside it: the first call costs ~10s (WASM load +
+handshake + auth + version lookup) and later calls ~0.04s once memoised. On
+serverless that 10s hits every cold start, so the session wants caching at
+module scope with the in-flight promise shared.</p>
+<p>The working integration is an AI chat agent that calls the eligibility contract
+as a tool and explains the result:
+<a href="https://github.com/G-ojies/greyat-labs-chat">https://github.com/G-ojies/greyat-labs-chat</a></p>
 <h2>One open question I could not answer</h2>
 <p>Recorded rather than glossed over, because it affects my own contract.</p>
 <p><strong>What does <code>calling-user-did()</code> return during a delegated call?</strong> The WIT calls
