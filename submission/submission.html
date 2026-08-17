@@ -237,6 +237,40 @@ ACCEPTED: date_of_birth, first_name, last_name, residence_country, address,
 </code></pre>
 <p>The field is <strong><code>residence_country</code></strong>. Note the trap: <code>country</code> is both the
 obvious name and an explicitly rejected key.</p>
+<h3>BUG-08 (Blocker) — the three-principal invoke flow can&#39;t be completed with a claimed credential</h3>
+<p>Since this bounty is titled &quot;Create Agent ID&quot;, I tested the agent path properly
+rather than relying on the self-call fallback. Step 4 of the walkthrough needs
+<code>AGENT_KEY</code> and <code>USER_KEY</code> beyond the tenant key, tells you not to reuse the
+tenant key, and never says where they come from. So I generated an agent key
+locally and traced exactly how far it gets.</p>
+<p><strong>A self-generated key does yield a valid, distinct DID</strong>, and authenticates:</p>
+<pre><code>tenant/user : did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+agent       : did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+same DID?   : no — genuinely distinct
+</code></pre>
+<p><strong>The delegation grant succeeds too</strong> — the data owner scopes the agent to the
+contract, its functions and its egress hosts, and the node accepts it:</p>
+<pre><code>granted did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+  -&gt; z:f39cbc…:eligibility (hosts: verifier-jade.vercel.app)
+</code></pre>
+<p><strong>But the agent cannot execute anything:</strong></p>
+<pre><code>[403] InsufficientCredit (account=15e4b33b…, required=10000000000, available=0)
+      (req 9be2381f-ddbf-4c9d-a247-69d6605d253d)
+</code></pre>
+<p>At <code>TOKEN_DECIMALS = 6</code> that is <strong>10,000 tokens for a single invocation</strong>,
+against zero. It cannot bootstrap itself either:</p>
+<pre><code>[-32602] email_not_verified: caller has no verified email and supplied no
+proving authenticator. Run otp-request + otp-verify first.
+      (req bfbcd318-4b38-477a-b2b1-fd5f73747bee)
+</code></pre>
+<p>And there&#39;s no self-service funding path — nine plausible token function names
+on <code>tee:tenant/contracts</code> (<code>token-balance</code>, <code>token-transfer</code>, <code>token-grant</code>,
+<code>tenant-usage</code>, …) all return absent.</p>
+<p>The sting is that the <strong>grant succeeding</strong> signals the setup is right; the
+failure lands one call later, where the natural suspicion is the contract rather
+than the identity. Leading step 4 with the self-call form, and having
+<code>agent-auth-update</code> warn when granting to an unfunded DID, would fix this
+cheaply.</p>
 <h3>Remaining findings</h3>
 <table>
 <thead>
@@ -253,8 +287,8 @@ obvious name and an explicitly rejected key.</p>
 </tr>
 <tr>
 <td>BUG-08</td>
-<td>Major</td>
-<td>The walkthrough needs three credentials; the claim page issues one</td>
+<td><strong>Blocker</strong></td>
+<td>The three-principal invoke flow cannot be completed with a claimed credential — see below</td>
 </tr>
 <tr>
 <td>BUG-07</td>
@@ -397,6 +431,27 @@ npx tsx verifier/test.ts
 </tr>
 </tbody></table>
 <hr>
+<h2>One open question I could not answer</h2>
+<p>Recorded rather than glossed over, because it affects my own contract.</p>
+<p><strong>What does <code>calling-user-did()</code> return during a delegated call?</strong> The WIT calls
+it &quot;the authenticated session DID&quot;. When an <em>agent</em> invokes on a user&#39;s behalf,
+either reading is plausible:</p>
+<ul>
+<li>it returns the <strong>user&#39;s</strong> DID → <code>z-tenant-eligibility</code> is correct, since the
+attestation is attributed to whoever&#39;s PII was read; or</li>
+<li>it returns the <strong>agent&#39;s</strong> DID → my contract has a genuine correctness bug,
+because the host resolves the <em>user&#39;s</em> profile for the <code>{{profile.*}}</code>
+placeholders while the attestation would be keyed to the agent. One person&#39;s
+eligibility would be recorded against a different principal.</li>
+</ul>
+<p>I wrote the test (<code>scripts/agent-test.ts</code>, step 5) and it&#39;s ready to run, but it
+cannot reach that step — the agent has no credits (BUG-08), so the call never
+executes. Everything in this report used the self-call form, where user and
+caller are the same DID and the ambiguity doesn&#39;t arise.</p>
+<p>Flagging it because any contract keying authorisation or record-ownership on
+<code>calling-user-did()</code> behaves differently under delegation depending on which
+reading holds, and the docs don&#39;t say. If you can fund an agent identity on your
+side, that test answers it in one call — I&#39;d genuinely like to know.</p>
 <h2>What would help most</h2>
 <p>If I could change one thing, it would be <strong>BUG-12</strong> — returning a proper
 <code>-32601 Method not found</code> instead of <code>Internal error</code>. Every other defect here

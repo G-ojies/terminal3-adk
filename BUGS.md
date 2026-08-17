@@ -31,7 +31,7 @@ each are in [`evidence/`](evidence/).
 | [BUG-15](#bug-15) | Major | Re-registering mints a new `contract_id`, silently orphaning map ACLs |
 | [BUG-16](#bug-16) | Major | Profile schema undocumented; the field is `residence_country`, not `country` |
 | [BUG-07](#bug-07) | Minor | The tenant world's available host interfaces are never listed |
-| [BUG-08](#bug-08) | Major | The walkthrough needs three credentials; the claim page issues one |
+| [BUG-08](#bug-08) | Blocker | The documented three-principal invoke flow cannot be completed with a claimed credential |
 | [BUG-14](#bug-14) | Minor | Two different credential formats are both called "the API key" |
 | [BUG-04](#bug-04) | Minor | `idx:_tenants` admission referenced but never explained (downgraded — see entry) |
 | [BUG-05](#bug-05) | Minor | `npm install` EBADENGINE warning with no documented Node range |
@@ -529,9 +529,9 @@ schema but unset on this profile".
 
 # Part 4 — Onboarding friction
 
-## BUG-08 — The walkthrough needs three credentials; the claim page issues one
+## BUG-08 — The documented three-principal invoke flow cannot be completed with what the claim page issues
 
-**Severity: Major** · Page: [Invoke your TEE contract](https://docs.terminal3.io/developers/adk/get-started/walkthrough/invoke-contract)
+**Severity: Blocker** (for the documented flow) · Page: [Invoke your TEE contract](https://docs.terminal3.io/developers/adk/get-started/walkthrough/invoke-contract)
 
 Step 4 introduces two further credentials with no explanation of their origin:
 
@@ -541,13 +541,70 @@ const userKey  = process.env.USER_KEY!;  // stands in for the real data owner's 
 ```
 
 The claim page issues exactly one key and one DID, and the comment explicitly
-forbids reusing it. Common errors hints that extra identities need separate
-funding ("Agent identities need separate funding; contact devrel@terminal3.io"),
-but that is on a troubleshooting page rather than in the step that needs it.
+forbids reusing it. I tested what happens if you do the obvious thing and
+generate an agent key locally — `scripts/agent-test.ts`, full transcript in
+[`evidence/08-agent-identity.txt`](evidence/08-agent-identity.txt).
 
-**Suggested fix.** State how to obtain agent and user credentials in step 4, and
-lead with the lighter self-call variant the page already documents further down,
-so the walkthrough is completable with the one key you were issued.
+**A self-generated key does produce a valid, distinct DID**, and authenticates
+cleanly:
+
+```
+tenant/user : did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+agent       : did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+same DID?   : no — genuinely distinct
+```
+
+**The delegation grant also succeeds.** The data owner can scope this agent to a
+contract, its functions and its egress hosts, and the node accepts it without
+complaint:
+
+```
+granted did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+  -> z:f39cbc…:eligibility (hosts: verifier-jade.vercel.app)
+```
+
+**But the agent cannot execute anything.** Its first contract call:
+
+```
+[403] InsufficientCredit (account=15e4b33b0886f32b63dc9f9a614ad8db17a6e463,
+      required=10000000000, available=0)
+      (req 9be2381f-ddbf-4c9d-a247-69d6605d253d)
+```
+
+At the SDK's `TOKEN_DECIMALS = 6`, that requirement is **10,000 tokens for one
+invocation**, against a balance of zero. The agent cannot bootstrap itself
+either — it cannot even bind an email:
+
+```
+[-32602] email_not_verified: caller has no verified email and supplied no
+proving authenticator. Run otp-request + otp-verify first to bind an email
+to this DID.  (req bfbcd318-4b38-477a-b2b1-fd5f73747bee)
+```
+
+And there is no self-service funding path: probing `tee:tenant/contracts` for
+`token-balance`, `token-transfer`, `token-grant`, `tenant-usage` and five other
+plausible names returns absent for all nine.
+
+**Impact.** Step 4 is the last step of the walkthrough, reached after building
+and registering everything. The three-principal flow it documents is not
+completable from a claimed credential — funding an agent identity is strictly
+out-of-band. The grant succeeding makes this worse, not better: it signals the
+setup is correct, and the failure surfaces one call later, where the natural
+suspicion is the contract rather than the identity.
+
+The self-call variant *is* completable, and is what this repo uses — but it gets
+a single sentence partway down the page, framed as the exception rather than as
+the only self-serve option.
+
+**Suggested fix.** Lead step 4 with the self-call form, and mark the
+three-identity setup as requiring funded agent credentials with a stated way to
+request them. Ideally have `agent-auth-update` warn when granting to an unfunded
+DID — that is the moment the developer still has the context to understand it.
+
+**Left unresolved.** Because the agent cannot transact, I could not determine
+what `calling-user-did()` returns during a *delegated* call. That is a real open
+question for any contract keyed on caller identity, including mine — see
+[Open question](#open-question) at the end.
 
 ---
 
@@ -625,6 +682,38 @@ different Node before finding out it was unnecessary.
 
 **Suggested fix.** State a supported Node range, and note that this warning is
 benign.
+
+---
+
+## Open question
+
+One thing I could not settle, recorded here rather than glossed over.
+
+**What does `calling-user-did()` return during a delegated call?** The WIT
+describes it as "the calling user DID (the authenticated session DID), if the
+contract was invoked through the Session API". When an *agent* invokes on a
+user's behalf, two readings are possible:
+
+- it returns the **user's** DID — in which case `z-tenant-eligibility` is
+  correct, because the attestation is attributed to whoever's PII was actually
+  read; or
+- it returns the **agent's** DID — in which case my contract has a real
+  correctness bug, since the host resolves the *user's* profile for the
+  `{{profile.*}}` placeholders while the attestation would be keyed to the
+  agent. Eligibility derived from one person's data would be recorded against
+  another principal.
+
+I built the test for this (`scripts/agent-test.ts`, step 5) and it is ready to
+run, but it cannot reach that step: the agent identity has no credits (BUG-08),
+so the invocation never executes. Every result in this report used the
+self-call form, where user and caller are the same DID and the ambiguity does
+not arise.
+
+This is worth flagging to any team building on the ADK, because a contract that
+keys authorisation or record-ownership on `calling-user-did()` behaves very
+differently under delegation depending on which reading is right — and the
+documentation does not say. If someone can fund an agent identity, the test
+answers it in one call.
 
 ---
 

@@ -1,0 +1,25 @@
+tenant/user : did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4
+agent       : did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+same DID?   : no — genuinely distinct
+contract    : z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility @ 0.1.5
+--- 1. can the agent DID execute anything? ---
+  agent transaction FAILED
+  -> [-32602] email_not_verified: caller has no verified email and supplied no proving authenticator. Run otp-request + otp-verify first to bind an email to this DID. (req bfbcd318-4b38-477a-b2b1-fd5f73747bee)
+--- 2. seeded policy 'agent-test' ---
+--- 3. user grants the agent access ---
+  granted did:t3n:15e4b33b0886f32b63dc9f9a614ad8db17a6e463
+    -> z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility (hosts: verifier-jade.vercel.app)
+--- 4. agent invokes check-eligibility ---
+  agent invoke FAILED
+  -> [403] InsufficientCredit (account=15e4b33b0886f32b63dc9f9a614ad8db17a6e463, required=10000000000, available=0) (req 9be2381f-ddbf-4c9d-a247-69d6605d253d)
+
+--- no self-service funding path on tee:tenant/contracts ---
+absent           token-balance
+absent           balance
+absent           token-get-balance
+absent           tenant-usage
+absent           token-usage
+absent           usage
+absent           tenant-balance
+absent           token-transfer
+absent           token-grant
