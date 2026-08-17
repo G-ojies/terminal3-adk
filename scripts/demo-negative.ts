@@ -20,7 +20,9 @@ import { getContractVersion, getNodeUrl } from "@terminal3/t3n-sdk";
 import { controlClient } from "./control.js";
 import { requireEnv } from "./session.js";
 
-const POLICY_ID = "eu-only";
+// Overridable: attestations are cached per policy, so a fresh id forces a
+// genuine re-evaluation rather than returning the cached verdict.
+const POLICY_ID = process.env.POLICY_ID ?? "eu-only";
 const c = await controlClient();
 const SCRIPT = c.canonical("eligibility");
 const scriptVersion = await getContractVersion(c.baseUrl, SCRIPT);

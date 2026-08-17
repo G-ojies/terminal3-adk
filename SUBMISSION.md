@@ -6,6 +6,30 @@
 **DID:** `did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4`
 **Cluster:** `cn-api.sg.testnet.t3n.terminal3.io`
 
+**Screenshots:** https://github.com/G-ojies/terminal3-adk/tree/main/screenshots
+
+---
+
+## Screenshots
+
+All six are captures of real runs against the live testnet, with the command
+printed at the top of each. Reproducible via `scripts/shoot.sh`.
+
+1. **Registering the contract** — tenant `active`, 184 KiB component uploaded,
+   contract id assigned, three KV maps created and ACLs re-pointed, secret
+   sealed, policy seeded.
+2. **The full end-to-end flow** — issue (`reused:false`) → reuse
+   (`reused:true`, identical digest, no outbound call) → verify genuine →
+   reject tampered (`digest_mismatch`).
+3. **Proof that PII is resolved host-side** — a DE/FR-only policy evaluated
+   against an NG profile flips to `country_not_permitted`, on a value the
+   contract never held.
+4. **BUG-10 reproduced** — `TypeError: tenant.me is not a function`, plus where
+   `me()` actually lives. This is the listing's top unanswered comment.
+5. **BUG-01 reproduced** — the documented Rust instruction applied to Terminal
+   3's own reference contract, producing `error[E0277]`.
+6. **38 tests passing** — 23 Rust, 15 TypeScript.
+
 ---
 
 ## Summary
