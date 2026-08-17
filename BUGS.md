@@ -723,11 +723,31 @@ Verified working: `loadWasmComponent()`, `fetchTrustedManifest()`, handshake,
 authenticate, `getContractVersion` and `executeAndDecode` against a live tenant
 contract, in both `next dev` (Turbopack) and `next build`.
 
-One practical note worth documenting alongside it: the first call costs ~10s
-(WASM load + handshake + auth + version lookup), and subsequent calls ~0.04s
-once the session is memoised. In a serverless deployment that 10s lands on
-every cold start, so the session should be cached at module scope and the
-in-flight promise shared rather than re-handshaking per request.
+### Session setup cost, and a serverless caveat worth documenting
+
+Locally, memoising the session at module scope works exactly as you'd hope:
+
+```
+first call  10.2s     (WASM load + handshake + authenticate + getContractVersion)
+later calls  0.036s   (session reused)
+```
+
+**On Vercel serverless it does not help.** Measured against a deployed
+production function, five sequential requests:
+
+```
+call 1: 8.41s   call 2: 4.92s   call 3: 5.63s   call 4: 5.31s   call 5: 6.02s
+```
+
+The cache never hits — every request pays a fresh handshake. The module scope
+is not reliably reused between invocations, so the memoisation that makes this
+a non-issue on a long-lived server does nothing on a per-request one.
+
+That is a meaningful deployment fact for anyone putting the ADK behind a
+serverless endpoint: **budget ~5–8s of setup on every request**, not just on
+cold start. Worth stating in the docs, alongside guidance on whether a session
+can safely be persisted or resumed across processes — which, if possible, is
+the thing that would actually fix it.
 
 Working integration: <https://github.com/G-ojies/greyat-labs-chat>
 

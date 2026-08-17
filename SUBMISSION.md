@@ -481,10 +481,15 @@ Verified in both `next dev` (Turbopack) and `next build`:
 `loadWasmComponent`, `fetchTrustedManifest`, handshake, authenticate,
 `getContractVersion` and `executeAndDecode` against the live contract.
 
-Worth documenting alongside it: the first call costs ~10s (WASM load +
-handshake + auth + version lookup) and later calls ~0.04s once memoised. On
-serverless that 10s hits every cold start, so the session wants caching at
-module scope with the in-flight promise shared.
+**A serverless caveat worth documenting.** Locally, memoising the session at
+module scope works as you'd hope — 10.2s first call, 0.036s thereafter. On
+Vercel serverless it does not help at all; five sequential requests to a
+deployed function measured 8.41s, 4.92s, 5.63s, 5.31s, 6.02s. The module scope
+isn't reliably reused between invocations, so every request pays a fresh
+handshake. Anyone putting the ADK behind a serverless endpoint should budget
+~5–8s per request, not just per cold start — and guidance on whether a session
+can be persisted or resumed across processes would be the thing that actually
+fixes it.
 
 The working integration is an AI chat agent that calls the eligibility contract
 as a tool and explains the result:
