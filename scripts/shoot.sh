@@ -29,8 +29,8 @@ RUNEOF
 
 # -hold keeps the window up after the command exits so it can be captured.
 xterm -title "$TITLE" \
-      -fa "DejaVu Sans Mono" -fs 10 \
-      -geometry 205x52 \
+      -fa "DejaVu Sans Mono" -fs "${FS:-10}" \
+      -geometry "${COLS:-205}x${ROWS:-52}" \
       -bg "#0b0e14" -fg "#e6e6e6" \
       -hold \
       -e bash "$RUNNER" &

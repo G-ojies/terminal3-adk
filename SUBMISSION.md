@@ -1,7 +1,7 @@
 # Terminal 3 ADK — Bounty Submission
 
 **Repo:** https://github.com/G-ojies/terminal3-adk
-**Live contract:** `z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.4 (contract id 716)
+**Live contract:** `z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.5 (contract id 717)
 **Live verifier:** https://verifier-jade.vercel.app/api/eligibility
 **DID:** `did:t3n:f39cbc5ab038a4b3fa862e025f971485690864e4`
 **Cluster:** `cn-api.sg.testnet.t3n.terminal3.io`
@@ -181,10 +181,10 @@ The WASM is not a JSON field at all — `{ name, version }` alone gives
 await t3n.executeWithBlob(
   { script_name: "tee:tenant/contracts", script_version: "1.26.0",
     function_name: "contract-register",
-    input: { name: `z:${tid}:eligibility`, version: "0.1.4" } },
+    input: { name: `z:${tid}:eligibility`, version: "0.1.5" } },
   new Blob([wasm], { type: "application/wasm" }),
 );
-// -> { name: "z:f39cbc…:eligibility", contract_id: 716 }
+// -> { name: "z:f39cbc…:eligibility", contract_id: 717 }
 ```
 
 Once past this, `tenant-me` confirmed the account was fine all along:
@@ -250,7 +250,7 @@ same signature. A plain rename fixes it.
 ### BUG-15 (Major) — re-registering silently orphans every map ACL
 
 Each `contract-register` mints a **new** `contract_id` (I observed 712 → 713 →
-714 → 715 → 716 for one contract). Map ACLs are keyed by `contract_id`, and
+714 → 715 → 716 → 717 for one contract). Map ACLs are keyed by `contract_id`, and
 `map-create` is idempotent — it returns "already exists" without refreshing the
 ACL. So the second deploy breaks at runtime:
 

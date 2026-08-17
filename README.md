@@ -14,8 +14,8 @@ Three things are in here:
    contract, live on testnet, built for the bounty's bonus ask for use-case
    inspiration.
 
-**Live now:** `z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.4
-(contract id 716) on `cn-api.sg.testnet.t3n.terminal3.io`, calling a real
+**Live now:** `z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.5
+(contract id 717) on `cn-api.sg.testnet.t3n.terminal3.io`, calling a real
 external verifier at `verifier-jade.vercel.app`.
 
 ---

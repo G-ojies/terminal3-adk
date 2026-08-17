@@ -11,8 +11,8 @@ Where the node returned a request id, it is included.
 sit between a new developer and their first authenticated call, and four more
 between that call and a working contract. All are worked around in this repo,
 and the contract is live and fully functional —
-`z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.4, contract id
-716, issuing real attestations against a real external verifier.
+`z:f39cbc5ab038a4b3fa862e025f971485690864e4:eligibility` @ 0.1.5, contract id
+717, issuing real attestations against a real external verifier.
 
 Fourteen findings, ordered by where a developer meets them. Raw transcripts for
 each are in [`evidence/`](evidence/).
